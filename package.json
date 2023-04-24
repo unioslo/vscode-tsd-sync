@@ -10,7 +10,9 @@
     "Other"
   ],
   "activationEvents": [
-    "onFileSystem:file"
+    "onFileSystem:file",
+    "onCommand:getting-started-sample.runCommand",
+    "onCommand:getting-started-sample.changeSetting"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -22,6 +24,62 @@
       {
         "command": "notifications-sample.showProgress",
         "title": "myshowProgress"
+      },
+      {
+        "title": "Getting Started Sample: Say Hello",
+        "shortTitle": "Say Hello (This is the name used in the New File quick pick)",
+        "command": "getting-started-sample.sayHello"
+      },
+      {
+        "command": "samples.quickInput",
+        "title": "TSD Sync config"
+      }
+    ],
+    "configuration": {
+      "title": "TSD Sync",
+      "properties": {
+        "tsdSync.importUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "The TSD import link including the ID.",
+          "scope": "resource"
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "sample",
+        "title": "Sample",
+        "description": "A sample walkthrough",
+        "steps": [
+          {
+            "id": "runcommand",
+            "title": "Run Command",
+            "description": "This step will run a command and check off once it has been run.\n[Run Command](command:getting-started-sample.runCommand)",
+            "media": {
+              "image": "media/image.png",
+              "altText": "Empty image"
+            },
+            "completionEvents": [
+              "onCommand:getting-started-sample.runCommand"
+            ]
+          },
+          {
+            "id": "changesetting",
+            "title": "Change Setting",
+            "description": "This step will change a setting and check off when the setting has changed\n[Change Setting](command:getting-started-sample.changeSetting)",
+            "media": {
+              "image": "media/image.png",
+              "altText": "Empty image"
+            },
+            "completionEvents": [
+              "onSettingChanged:getting-started-sample.sampleSetting"
+            ]
+          }
+        ]
       }
     ]
   },
@@ -38,6 +96,7 @@
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "16.x",
+    "@types/node-fetch": "^2.6.3",
     "@types/vscode": "^1.77.0",
     "@typescript-eslint/eslint-plugin": "^5.56.0",
     "@typescript-eslint/parser": "^5.56.0",
@@ -50,6 +109,9 @@
   },
   "dependencies": {
     "async-es": "^3.2.4",
-    "md5": "^2.3.0"
+    "async-mutex": "^0.4.0",
+    "jwt-decode": "^3.1.2",
+    "md5": "^2.3.0",
+    "node-fetch": "^2.6.9"
   }
 }

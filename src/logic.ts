@@ -1,12 +1,13 @@
 import * as vscode from "vscode";
 import { statusBarItem } from "./statusBarItem";
 import { UploadQueue } from "./uploadQueue";
+import { progress } from "./ui/progress";
 
 enum State {
   init, // -> SYNCING
   synced, // -> SYNCING, ERROR
   syncing, // -> PROGRESS, ERROR
-  progress, // -> ERROR
+  progress, // -> ERROR, INIT
   error, // -> SYNCING
 }
 
@@ -14,7 +15,11 @@ export enum ReducerActionType {
   syncFile,
   syncWorkspace,
   syncCompleted,
-  syncError,
+  raiseFatalError,
+  raiseError,
+  showProgress,
+  hideProgress,
+  cancelSync,
 }
 
 interface BaseAction {
@@ -34,7 +39,25 @@ export interface SyncCompletedAction extends BaseAction {
   type: ReducerActionType.syncCompleted;
 }
 
-type ReducerAction = SyncFileAction | SyncWorkspaceAction | SyncCompletedAction;
+export interface ShowProgressAction extends BaseAction {
+  type: ReducerActionType.showProgress;
+}
+
+export interface CancelSyncAction extends BaseAction {
+  type: ReducerActionType.cancelSync;
+}
+
+export interface RaiseErrorAction extends BaseAction {
+  type: ReducerActionType.raiseError;
+}
+
+type ReducerAction =
+  | SyncFileAction
+  | SyncWorkspaceAction
+  | SyncCompletedAction
+  | ShowProgressAction
+  | RaiseErrorAction
+  | CancelSyncAction;
 
 export class Logic {
   state: State = State.init;
@@ -42,9 +65,10 @@ export class Logic {
 
   constructor() {
     this.#uploadQueue.onWorkComplete = () => {
-      statusBarItem.showSynced();
+      this.dispatch({ type: ReducerActionType.syncCompleted });
     };
     this.#uploadQueue.onError = () => {
+      this.dispatch({ type: ReducerActionType.raiseError });
       statusBarItem.showError();
     };
   }
@@ -76,13 +100,19 @@ export class Logic {
       case ReducerActionType.syncFile:
         switch (this.state) {
           case State.init:
+            // sync whole workspace on init
+            this.#uploadQueue.add({ uri: action.uri });
+            this.dispatch({ type: ReducerActionType.syncWorkspace });
+            return State.syncing;
           case State.synced:
           case State.syncing:
           case State.progress:
           case State.error:
             statusBarItem.showSync();
+            this.#uploadQueue.add({ uri: action.uri });
             return State.syncing;
         }
+        break;
       case ReducerActionType.syncWorkspace:
         switch (this.state) {
           case State.init:
@@ -94,6 +124,7 @@ export class Logic {
             this.#syncWorkSpace();
             return State.syncing;
         }
+        break;
       case ReducerActionType.syncCompleted:
         switch (this.state) {
           case State.syncing:
@@ -101,6 +132,35 @@ export class Logic {
             statusBarItem.showSynced();
             return State.synced;
         }
+        break;
+      case ReducerActionType.showProgress:
+        switch (this.state) {
+          case State.progress:
+            // do nothing if button is clicked again
+            return State.progress;
+          case State.syncing:
+            console.log("show progress");
+            progress.showProgress(this, async (p) => {
+              this.#uploadQueue.onProgress = (_, taskData) => {
+                p.report({ message: taskData && taskData.path });
+              };
+              await this.#uploadQueue.taskQueue?.drain();
+            });
+            return State.progress;
+        }
+        break;
+      case ReducerActionType.cancelSync:
+        switch (this.state) {
+          case State.progress:
+            this.#uploadQueue.cancel();
+            statusBarItem.showError();
+            return State.error;
+        }
+        break;
+      case ReducerActionType.raiseError:
+        statusBarItem.showError();
+        return State.error;
+        break;
     }
     throw Error(`action: ${action.type} state: ${this.state} not implemented`);
   }

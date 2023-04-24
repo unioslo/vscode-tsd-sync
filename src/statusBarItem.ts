@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { commandNames } from "./commandNames";
 
 export namespace statusBarItem {
   export const statusBarItem = vscode.window.createStatusBarItem(
@@ -13,7 +14,7 @@ export namespace statusBarItem {
 
   export function showInit() {
     statusBarItem.tooltip = "Click to start sync to pXX.";
-    statusBarItem.command = "tsdsync.uploadAll";
+    statusBarItem.command = commandNames.tsdsyncUploadAll;
     statusBarItem.text = "$(testing-unset-icon) " + "TSD sync";
   }
 
@@ -25,7 +26,7 @@ export namespace statusBarItem {
 
   export function showSync() {
     statusBarItem.tooltip = "Click to terminate...";
-    statusBarItem.command = "tsdsync.showSyncProgress";
+    statusBarItem.command = commandNames.tsdsyncShowProgress;
     statusBarItem.text = "$(sync~spin) " + "TSD sync";
   }
 

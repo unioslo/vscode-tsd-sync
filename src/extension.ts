@@ -3,13 +3,8 @@
 import * as vscode from "vscode";
 import { statusBarItem } from "./statusBarItem";
 import { Logic, ReducerActionType } from "./logic";
-
-namespace commandNames {
-  export const tsdsyncUploadAll = "tsdsync.uploadAll";
-  export const tsdsyncShowProgress = "tsdsync.showProgress";
-}
-
-//const uploadQueue = new UploadQueue({});
+import { commandNames } from "./commandNames";
+import { showInputBox } from "./config/urlInput";
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -35,70 +30,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // const showProgressNotification = vscode.commands.registerCommand(
-  //   "notifications-sample.showProgress",
-  //   () => {
-  //     vscode.window.withProgress(
-  //       {
-  //         location: vscode.ProgressLocation.Notification,
-  //         title: "Progress Notification",
-  //         cancellable: true,
-  //       },
-  //       async (progress, token) => {
-  //         token.onCancellationRequested(() => {
-  //           console.log("User canceled the long running operation");
-  //         });
-  //         progress.report({ increment: 0 });
-  //         await sleep(1000);
-  //         progress.report({ increment: 10, message: "Still going..." });
-  //         await sleep(1000);
-  //         progress.report({
-  //           increment: 40,
-  //           message: "Still going even more...",
-  //         });
-  //         await sleep(1000);
-  //         progress.report({
-  //           increment: 50,
-  //           message: "I am long running! - almost there...",
-  //         });
-  //         await sleep(1000);
-  //         //hideBusyIndicator();
-  //       }
-  //     );
-  //   }
-  // );
-
   const showSyncProgressNotification = vscode.commands.registerCommand(
     commandNames.tsdsyncShowProgress,
-    () => {
-      vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "TSD Sync (pXX)",
-          cancellable: true,
-        },
-        async (progress, token) => {
-          token.onCancellationRequested(() => {
-            console.log("User canceled the long running operation");
-          });
-          //const numInitialItems = uploadQueue.taskQueue.length();
-          // const p = (1 / numInitialItems) * 100;
-          // uploadQueue.onProgress = (taskQueue) => {
-          //   progress.report({
-          //     increment: p,
-          //     message:
-          //       (taskQueue.workersList().length &&
-          //         taskQueue.workersList()[0].data.path) ||
-          //       undefined,
-          //   });
-          //   if (taskQueue.length() === 0) {
-          //     //uploadQueue.onProgress = undefined;
-          //   }
-          // };
-          //await uploadQueue.taskQueue.drain();
-        }
-      );
-    }
+    () => logic.dispatch({ type: ReducerActionType.showProgress })
   );
 
   const tsdSyncUploadAll = vscode.commands.registerCommand(
@@ -111,37 +45,122 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(showSyncProgressNotification);
   context.subscriptions.push(tsdSyncUploadAll);
   context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument(async (e) => {
-      const d = new Date();
-      console.log("onDidSaveTextDocument", d, "start", e.uri.fsPath);
-      //uploadQueue.add({ uri: e.uri });
+    vscode.workspace.onDidSaveTextDocument(async (e) =>
+      logic.dispatch({ type: ReducerActionType.syncFile, uri: e.uri })
+    )
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidCreateFiles((e) => {
+      e.files.map((file) =>
+        logic.dispatch({ type: ReducerActionType.syncFile, uri: file })
+      );
     })
   );
   context.subscriptions.push(
-    vscode.workspace.onDidCreateFiles(async (e) => {
-      const d = new Date();
-      console.log(
-        "onDidCreateFiles",
-        d,
-        "start",
-        e.files.map((e) => e.fsPath).join(";")
-      );
-      //e.files.map((file) => uploadQueue.add({ uri: file }));
-    })
-  );
-  context.subscriptions.push(
-    vscode.workspace.onDidRenameFiles(async (e) => {
-      const d = new Date();
-      console.log(
-        "onDidRenameFiles",
-        d,
-        "start",
-        e.files.map((e) => e.newUri.path).join(";")
-      );
+    vscode.workspace.onDidRenameFiles((e) => {
       // todo: add delete
-      //e.files.map((file) => uploadQueue.add({ uri: file.newUri }));
+      e.files.map((file) =>
+        logic.dispatch({ type: ReducerActionType.syncFile, uri: file.newUri })
+      );
     })
   );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "getting-started-sample.runCommand",
+      async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        vscode.commands.executeCommand(
+          "getting-started-sample.sayHello",
+          vscode.Uri.joinPath(context.extensionUri, "sample-folder")
+        );
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "getting-started-sample.changeSetting",
+      async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        vscode.workspace
+          .getConfiguration("getting-started-sample")
+          .update("sampleSetting", true);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("getting-started-sample.sayHello", () => {
+      vscode.window.showInformationMessage("Hello");
+    })
+  );
+
+  vscode.commands.registerCommand(commandNames.tsdsyncConfigure, async () => {
+    // 1) Getting the value
+    const value = await vscode.window.showQuickPick(
+      ["explorer", "search", "scm", "debug", "extensions"],
+      { placeHolder: "Select the view to show when opening a window." }
+    );
+
+    if (vscode.workspace.workspaceFolders) {
+      // 2) Getting the Configuration target
+      const target = await vscode.window.showQuickPick(
+        [
+          {
+            label: "User",
+            description: "User Settings",
+            target: vscode.ConfigurationTarget.Global,
+          },
+          {
+            label: "Workspace",
+            description: "Workspace Settings",
+            target: vscode.ConfigurationTarget.Workspace,
+          },
+        ],
+        { placeHolder: "Select the view to show when opening a window." }
+      );
+
+      if (value && target) {
+        // 3) Update the configuration value in the target
+        await vscode.workspace
+          .getConfiguration()
+          .update("conf.view.showOnWindowOpen", value, target.target);
+
+        /*
+				// Default is to update in Workspace
+				await vscode.workspace.getConfiguration().update('conf.view.showOnWindowOpen', value);
+				*/
+      }
+    } else {
+      // 2) Update the configuration value in User Setting in case of no workspace folders
+      await vscode.workspace
+        .getConfiguration()
+        .update(
+          "conf.view.showOnWindowOpen",
+          value,
+          vscode.ConfigurationTarget.Global
+        );
+    }
+  });
+
+  vscode.commands.registerCommand("samples.quickInput", async () => {
+    await showInputBox();
+    // const options: {
+    //   [key: string]: (context: vscode.ExtensionContext) => Promise<void>;
+    // } = {
+    //   showInputBox,
+    // };
+    // const quickPick = vscode.window.createQuickPick();
+    // quickPick.items = Object.keys(options).map((label) => ({ label }));
+    // quickPick.onDidChangeSelection((selection) => {
+    //   if (selection[0]) {
+    //     options[selection[0].label](context).catch(console.error);
+    //   }
+    // });
+    // quickPick.onDidHide(() => quickPick.dispose());
+    // quickPick.show();
+  });
 }
 
 // This method is called when your extension is deactivated
