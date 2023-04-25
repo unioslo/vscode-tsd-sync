@@ -1,8 +1,8 @@
 import * as as from "async";
-import { UploadData, UploadTaskData } from "./uploadTaskData";
+import { UploadData, UploadTaskData } from "./uploadData";
 import { QueueObject } from "async";
-import { uploadFile } from "./upload";
 import * as vscode from "vscode";
+import { tsdApi } from "./tsdApi";
 
 const numParallelWorkers = 1;
 const maxRetries = 1;
@@ -27,6 +27,10 @@ class UploadDataSet {
   toArray() {
     return Array.from(this.#set);
   }
+}
+
+function whitelistedForSyncFilter(uri: vscode.Uri): boolean {
+  return !vscode.workspace.asRelativePath(uri.fsPath).startsWith(".vscode/");
 }
 
 export class UploadQueue {
@@ -72,6 +76,9 @@ export class UploadQueue {
     if (!this.taskQueue) {
       throw Error("taskQueue not initialized");
     }
+    if (!whitelistedForSyncFilter(uri)) {
+      return;
+    }
     const tasks = this.#getCurrentTasksSet();
     {
       const td: UploadTaskData = {
@@ -101,6 +108,28 @@ export class UploadQueue {
         this.taskQueue.push({ ...it, numRemaingRetries: maxRetries });
         this.incompleteTasks.pop(it);
       });
+    }
+  }
+
+  async #walk(dir: vscode.Uri, wsFolder: vscode.WorkspaceFolder) {
+    const entries = await vscode.workspace.fs.readDirectory(dir);
+    entries.map(async ([uriStr, type]) => {
+      const uri = vscode.Uri.joinPath(dir, uriStr);
+      if (type === vscode.FileType.Directory) {
+        await this.#walk(uri, wsFolder);
+      }
+      if (type === vscode.FileType.File) {
+        this.add({ uri });
+      }
+    });
+  }
+
+  async syncWorkspace() {
+    if (vscode.workspace.workspaceFolders) {
+      const p = vscode.workspace.workspaceFolders.map((wsFolder) =>
+        this.#walk(wsFolder.uri, wsFolder)
+      );
+      Promise.all(p);
     }
   }
 
@@ -134,8 +163,9 @@ export class UploadQueue {
       console.log("taskQueue processing", taskData.fsPath, "start");
       this.#onProgress && this.#onProgress(this.taskQueue, taskData);
       try {
-        await uploadFile(taskData.fsPath, taskData.path);
-      } catch (err) {
+        await tsdApi.putFile(taskData);
+      } catch (err: any) {
+        console.log(`taskQueue error while uploading file. ${err.toString()}`);
         // retry?
         if (taskData.numRemaingRetries > 0) {
           console.log("taskQueue requeueing", taskData.fsPath);

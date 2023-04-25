@@ -10,28 +10,13 @@
     "Other"
   ],
   "activationEvents": [
-    "onFileSystem:file",
-    "onCommand:getting-started-sample.runCommand",
-    "onCommand:getting-started-sample.changeSetting"
+    "onFileSystem:file"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "tsd-code-push.helloWorld",
-        "title": "Hello World"
-      },
-      {
-        "command": "notifications-sample.showProgress",
-        "title": "myshowProgress"
-      },
-      {
-        "title": "Getting Started Sample: Say Hello",
-        "shortTitle": "Say Hello (This is the name used in the New File quick pick)",
-        "command": "getting-started-sample.sayHello"
-      },
-      {
-        "command": "samples.quickInput",
+        "command": "tsdsync.configure",
         "title": "TSD Sync config"
       }
     ],
@@ -48,40 +33,7 @@
           "scope": "resource"
         }
       }
-    },
-    "walkthroughs": [
-      {
-        "id": "sample",
-        "title": "Sample",
-        "description": "A sample walkthrough",
-        "steps": [
-          {
-            "id": "runcommand",
-            "title": "Run Command",
-            "description": "This step will run a command and check off once it has been run.\n[Run Command](command:getting-started-sample.runCommand)",
-            "media": {
-              "image": "media/image.png",
-              "altText": "Empty image"
-            },
-            "completionEvents": [
-              "onCommand:getting-started-sample.runCommand"
-            ]
-          },
-          {
-            "id": "changesetting",
-            "title": "Change Setting",
-            "description": "This step will change a setting and check off when the setting has changed\n[Change Setting](command:getting-started-sample.changeSetting)",
-            "media": {
-              "image": "media/image.png",
-              "altText": "Empty image"
-            },
-            "completionEvents": [
-              "onSettingChanged:getting-started-sample.sampleSetting"
-            ]
-          }
-        ]
-      }
-    ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -101,13 +53,13 @@
     "@typescript-eslint/eslint-plugin": "^5.56.0",
     "@typescript-eslint/parser": "^5.56.0",
     "@vscode/test-electron": "^2.3.0",
-    "async": "^3.2.4",
     "eslint": "^8.36.0",
     "glob": "^8.1.0",
     "mocha": "^10.2.0",
     "typescript": "^4.9.5"
   },
   "dependencies": {
+    "async": "^3.2.4",
     "async-es": "^3.2.4",
     "async-mutex": "^0.4.0",
     "jwt-decode": "^3.1.2",

@@ -1,14 +1,17 @@
 import * as vscode from "vscode";
-import { statusBarItem } from "./statusBarItem";
+import { statusBarItem } from "./ui/statusBarItem";
 import { UploadQueue } from "./uploadQueue";
-import { progress } from "./ui/progress";
+import { showSyncProgress } from "./ui/syncProgress";
+import { capTokenMgr } from "./capToken";
+import { UUID } from "crypto";
 
 enum State {
-  init, // -> SYNCING
-  synced, // -> SYNCING, ERROR
-  syncing, // -> PROGRESS, ERROR
-  progress, // -> ERROR, INIT
-  error, // -> SYNCING
+  noconfig, // -> init
+  init, // -> syncing
+  synced, // -> syncing, error
+  syncing, // -> progress, error
+  progress, // -> error, init, synced
+  error, // -> syncing
 }
 
 export enum ReducerActionType {
@@ -20,6 +23,7 @@ export enum ReducerActionType {
   showProgress,
   hideProgress,
   cancelSync,
+  validatedConfig,
 }
 
 interface BaseAction {
@@ -51,16 +55,23 @@ export interface RaiseErrorAction extends BaseAction {
   type: ReducerActionType.raiseError;
 }
 
+export interface ValidatedConfigAction extends BaseAction {
+  type: ReducerActionType.validatedConfig;
+  linkId: UUID;
+  project: string;
+}
+
 type ReducerAction =
   | SyncFileAction
   | SyncWorkspaceAction
   | SyncCompletedAction
   | ShowProgressAction
   | RaiseErrorAction
-  | CancelSyncAction;
+  | CancelSyncAction
+  | ValidatedConfigAction;
 
 export class Logic {
-  state: State = State.init;
+  state: State = State.noconfig;
   #uploadQueue = new UploadQueue();
 
   constructor() {
@@ -71,38 +82,31 @@ export class Logic {
       this.dispatch({ type: ReducerActionType.raiseError });
       statusBarItem.showError();
     };
+    statusBarItem.showMissingConfig();
+    this.state = State.noconfig;
   }
-
-  #walk = async (dir: vscode.Uri, wsFolder: vscode.WorkspaceFolder) => {
-    const entries = await vscode.workspace.fs.readDirectory(dir);
-    entries.map(async ([uriStr, type]) => {
-      const uri = vscode.Uri.joinPath(dir, uriStr);
-      if (type === vscode.FileType.Directory) {
-        await this.#walk(uri, wsFolder);
-      }
-      if (type === vscode.FileType.File) {
-        this.#uploadQueue.add({ uri });
-      }
-    });
-  };
-
-  #syncWorkSpace = async () => {
-    if (vscode.workspace.workspaceFolders) {
-      const p = vscode.workspace.workspaceFolders.map((wsFolder) =>
-        this.#walk(wsFolder.uri, wsFolder)
-      );
-      Promise.all(p);
-    }
-  };
 
   #getState(action: ReducerAction): State {
     switch (action.type) {
+      case ReducerActionType.validatedConfig:
+        capTokenMgr.linkId = action.linkId; // load new config
+        capTokenMgr.projectCached = action.project;
+        statusBarItem.showInit();
+        switch (this.state) {
+          case State.noconfig:
+            return State.init;
+        }
+        // init, because we just might have set a new project/group
+        this.#uploadQueue.cancel();
+        return State.init;
       case ReducerActionType.syncFile:
         switch (this.state) {
+          case State.noconfig:
+            return this.state;
           case State.init:
-            // sync whole workspace on init
             this.#uploadQueue.add({ uri: action.uri });
-            this.dispatch({ type: ReducerActionType.syncWorkspace });
+            // sync whole workspace on init
+            this.#uploadQueue.syncWorkspace();
             return State.syncing;
           case State.synced:
           case State.syncing:
@@ -115,13 +119,15 @@ export class Logic {
         break;
       case ReducerActionType.syncWorkspace:
         switch (this.state) {
+          case State.noconfig:
+            return this.state;
           case State.init:
           case State.synced:
           case State.syncing:
           case State.progress:
           case State.error:
             statusBarItem.showSync();
-            this.#syncWorkSpace();
+            this.#uploadQueue.syncWorkspace();
             return State.syncing;
         }
         break;
@@ -139,8 +145,7 @@ export class Logic {
             // do nothing if button is clicked again
             return State.progress;
           case State.syncing:
-            console.log("show progress");
-            progress.showProgress(this, async (p) => {
+            showSyncProgress(this, async (p) => {
               this.#uploadQueue.onProgress = (_, taskData) => {
                 p.report({ message: taskData && taskData.path });
               };
