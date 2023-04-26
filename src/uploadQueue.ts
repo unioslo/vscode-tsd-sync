@@ -1,5 +1,10 @@
 import * as as from "async";
-import { UploadData, UploadTaskData } from "./uploadData";
+import {
+  UploadData,
+  UploadDataSet,
+  UploadOp,
+  UploadTaskData,
+} from "./uploadData";
 import { QueueObject } from "async";
 import * as vscode from "vscode";
 import { tsdApi } from "./tsdApi";
@@ -12,22 +17,6 @@ type ProgressCallbackFn = (
   taskQueue: QueueObject<UploadTaskData>,
   taskData?: UploadTaskData
 ) => void;
-
-class UploadDataSet {
-  #set: Set<string>;
-
-  constructor(d: UploadData[]) {
-    this.#set = new Set(d.map((d) => d.fsPath));
-  }
-
-  contains(v: UploadData): boolean {
-    return this.#set.has(v.fsPath);
-  }
-
-  toArray() {
-    return Array.from(this.#set);
-  }
-}
 
 function whitelistedForSyncFilter(uri: vscode.Uri): boolean {
   return !vscode.workspace.asRelativePath(uri.fsPath).startsWith(".vscode/");
@@ -84,13 +73,14 @@ export class UploadQueue {
       const td: UploadTaskData = {
         fsPath: uri.fsPath,
         path: vscode.workspace.asRelativePath(uri, true),
+        op: UploadOp.put,
         numRemaingRetries: maxRetries,
       };
       // skip already queued files
-      if (!this.#taskQueueContains(uri, tasks)) {
+      if (!this.#taskQueueContains(td, tasks)) {
         this.taskQueue.push(td);
       } else {
-        console.log("skip1 " + td.path);
+        console.log("skip1 " + td.path + " " + td.op);
       }
     }
     // re-queue failed tasks
@@ -106,7 +96,7 @@ export class UploadQueue {
           return;
         }
         this.taskQueue.push({ ...it, numRemaingRetries: maxRetries });
-        this.incompleteTasks.pop(it);
+        this.incompleteTasks.delete(it);
       });
     }
   }
@@ -216,35 +206,38 @@ export class UploadQueue {
 }
 
 class IncompleteTasks {
-  #map: Map<string, UploadData> = new Map();
+  #set: UploadDataSet;
 
-  constructor() {}
+  constructor() {
+    this.#set = new UploadDataSet();
+  }
 
   add(d: UploadData) {
-    this.#map.set(d.fsPath, d);
+    this.#set.add(d);
   }
 
   get length() {
-    return this.#map.size;
+    return this.#set.length;
   }
 
   toArray() {
-    return Array.from(this.#map.values());
+    return this.#set.toArray();
   }
 
-  pop(d: UploadData) {
-    this.#map.delete(d.fsPath);
+  delete(d: UploadData) {
+    this.#set.delete(d);
   }
 
   clear() {
-    this.#map.clear;
+    this.#set.clear();
   }
 
   toString() {
-    return Array.from(this.#map)
-      .map(([k, v]) => k)
+    return this.#set
+      .toArray()
+      .map((td) => `[${td.op}]/${td.path}`)
       .join(";");
   }
 
-  has = (d: UploadData) => this.#map.has(d.fsPath);
+  has = (d: UploadData) => this.#set.contains(d);
 }
