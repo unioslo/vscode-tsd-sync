@@ -20,6 +20,7 @@ export function activate(context: vscode.ExtensionContext) {
   statusBarItem.init();
 
   const logic = new Logic();
+  logic.init();
 
   const showSyncProgressNotification = vscode.commands.registerCommand(
     commandNames.tsdsyncShowProgress,

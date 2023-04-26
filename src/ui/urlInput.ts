@@ -3,6 +3,7 @@ import { getWsConfigUrl, setWsConfigUrl } from "../config";
 import { Logic, ReducerActionType } from "../logic";
 import { testImportUrl } from "../capToken";
 import { tsdConsts } from "../tsdConsts";
+import { importUrlValidationProgress } from "./importUrlValidationProgress";
 
 export async function showUrlInput(logic: Logic) {
   const url = getWsConfigUrl();
@@ -21,27 +22,6 @@ export async function showUrlInput(logic: Logic) {
     // save setting
     setWsConfigUrl(result);
     // show progress of getting a cap token
-    vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: "Testing TSD import link...",
-        cancellable: false,
-      },
-      async (progress, token) => {
-        const r = await testImportUrl(result);
-        if (!r.ok) {
-          vscode.window.showErrorMessage(
-            `Unable to use TSD import link. ${r.msg}`
-          );
-        } else {
-          // ready
-          logic.dispatch({
-            type: ReducerActionType.validatedConfig,
-            linkId: r.linkId,
-            project: r.project,
-          });
-        }
-      }
-    );
+    importUrlValidationProgress(result, logic);
   }
 }

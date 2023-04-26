@@ -4,6 +4,8 @@ import { UploadQueue } from "./uploadQueue";
 import { showSyncProgress } from "./ui/syncProgress";
 import { capTokenMgr } from "./capToken";
 import { UUID } from "crypto";
+import { getWsConfigUrl } from "./config";
+import { importUrlValidationProgress } from "./ui/importUrlValidationProgress";
 
 enum State {
   noconfig, // -> init
@@ -84,6 +86,14 @@ export class Logic {
     };
     statusBarItem.showMissingConfig();
     this.state = State.noconfig;
+  }
+
+  init() {
+    // check for config on startup
+    const importLink = getWsConfigUrl();
+    if (importLink) {
+      importUrlValidationProgress(importLink, this);
+    }
   }
 
   #getState(action: ReducerAction): State {
