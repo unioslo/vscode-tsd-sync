@@ -9,11 +9,12 @@ q:
 
 todo:
 
-- caching with hash of file content (even persist state??)
+- caching with hash of file content (even persist state? - might be needed for deletions)
 - tests?
 - push repo
 - add docu
 - publish
+- support .tsdsyncignore
 
 This is the README for your extension "tsd-code-push". After writing up a brief description, we recommend including the following sections.
 
