@@ -78,7 +78,7 @@ export async function testImportUrl(
   | { ok: false; msg: string }
 > {
   const uuid = tsdConsts.getUuidFromImportUrl(url);
-  await sleep(4000);
+  await sleep(1000);
   const c = new CapTokenMgr();
   try {
     if (!uuid) {

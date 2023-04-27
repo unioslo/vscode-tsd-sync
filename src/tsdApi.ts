@@ -46,6 +46,20 @@ export namespace tsdApi {
       throw new Error(r.statusText);
     }
   }
+
+  export async function deleteFile({ path }: { path: string }) {
+    const { group, project, token } = await capTokenMgr.getToken();
+    const r = await fetch(tsdConsts.uploadUrl({ path, group, project }), {
+      method: "DELETE",
+      headers: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!r.ok) {
+      throw new Error(r.statusText);
+    }
+  }
 }
 
 // export async function uploadFileOffline(fsPath: string, path: string) {

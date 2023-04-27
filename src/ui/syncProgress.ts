@@ -10,35 +10,14 @@ export const showSyncProgress = (
   vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "TSD Sync (pXX)",
+      title: `syncing file`,
       cancellable: true,
     },
     async (progress, token) => {
       token.onCancellationRequested(() => {
-        // use a vscode commend?
         logic.dispatch({ type: ReducerActionType.cancelSync });
-        console.log("User canceled the long running operation");
       });
       await cb(progress);
-      // progress.report({
-      //   increment
-      // })
-
-      //const numInitialItems = uploadQueue.taskQueue.length();
-      // const p = (1 / numInitialItems) * 100;
-      // uploadQueue.onProgress = (taskQueue) => {
-      //   progress.report({
-      //     increment: p,
-      //     message:
-      //       (taskQueue.workersList().length &&
-      //         taskQueue.workersList()[0].data.path) ||
-      //       undefined,
-      //   });
-      //   if (taskQueue.length() === 0) {
-      //     //uploadQueue.onProgress = undefined;
-      //   }
-      // };
-      //await uploadQueue.taskQueue.drain();
     }
   );
 };

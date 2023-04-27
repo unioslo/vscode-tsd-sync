@@ -4,6 +4,7 @@ import {
   UploadDataSet,
   UploadOp,
   UploadTaskData,
+  uploadOpStr,
 } from "./uploadData";
 import { QueueObject } from "async";
 import * as vscode from "vscode";
@@ -25,6 +26,7 @@ function whitelistedForSyncFilter(uri: vscode.Uri): boolean {
 export class UploadQueue {
   taskQueue: QueueObject<UploadTaskData> | null; // null to make linter happy :(
   incompleteTasks = new IncompleteTasks();
+  #deleteCache = new DeleteCache();
   #onProgress: undefined | ProgressCallbackFn;
   #onWorkStart: undefined | StatusCallbackFn;
   #onWorkComplete: undefined | StatusCallbackFn;
@@ -51,9 +53,6 @@ export class UploadQueue {
   };
 
   #getCurrentTasksSet = () => {
-    const taskData = Array.from(
-      (this.taskQueue as any)._tasks as UploadTaskData[]
-    );
     return new UploadDataSet(this.#getCurrentTasks());
   };
 
@@ -61,7 +60,7 @@ export class UploadQueue {
     return tasks.contains(file);
   };
 
-  add({ uri }: { uri: vscode.Uri }) {
+  #add = ({ uri, op }: { uri: vscode.Uri; op: UploadOp }) => {
     if (!this.taskQueue) {
       throw Error("taskQueue not initialized");
     }
@@ -73,7 +72,7 @@ export class UploadQueue {
       const td: UploadTaskData = {
         fsPath: uri.fsPath,
         path: vscode.workspace.asRelativePath(uri, true),
-        op: UploadOp.put,
+        op,
         numRemaingRetries: maxRetries,
       };
       // skip already queued files
@@ -99,29 +98,83 @@ export class UploadQueue {
         this.incompleteTasks.delete(it);
       });
     }
-  }
+  };
 
-  async #walk(dir: vscode.Uri, wsFolder: vscode.WorkspaceFolder) {
+  #recurseDir = async (
+    dir: vscode.Uri,
+    onFile: (uri: vscode.Uri) => Promise<void>
+  ) => {
     const entries = await vscode.workspace.fs.readDirectory(dir);
     entries.map(async ([uriStr, type]) => {
       const uri = vscode.Uri.joinPath(dir, uriStr);
       if (type === vscode.FileType.Directory) {
-        await this.#walk(uri, wsFolder);
+        await this.#recurseDir(uri, onFile);
       }
       if (type === vscode.FileType.File) {
-        this.add({ uri });
+        await onFile(uri);
       }
     });
-  }
+  };
 
-  async syncWorkspace() {
+  syncWorkspace = async () => {
     if (vscode.workspace.workspaceFolders) {
       const p = vscode.workspace.workspaceFolders.map((wsFolder) =>
-        this.#walk(wsFolder.uri, wsFolder)
+        this.#recurseDir(wsFolder.uri, async (uri: vscode.Uri) => {
+          this.#add({ uri, op: UploadOp.put });
+        })
       );
       Promise.all(p);
     }
-  }
+  };
+
+  put = async (uri: vscode.Uri) => {
+    const stat = await vscode.workspace.fs.stat(uri);
+    switch (stat.type) {
+      case vscode.FileType.File:
+        this.#add({ uri, op: UploadOp.put });
+        break;
+      case vscode.FileType.SymbolicLink:
+        // TODO:
+        break;
+      case vscode.FileType.Directory:
+        await this.#recurseDir(uri, async (uri: vscode.Uri) => {
+          this.#add({ uri, op: UploadOp.put });
+        });
+        break;
+      case vscode.FileType.Unknown:
+        console.warn(`uploadQueue put: unkown file ${uri.path}`);
+        break;
+      default:
+    }
+  };
+
+  prepareDelete = async (uri: vscode.Uri) => {
+    const stat = await vscode.workspace.fs.stat(uri);
+    switch (stat.type) {
+      case vscode.FileType.File:
+        this.#deleteCache.queue(uri);
+        break;
+      case vscode.FileType.SymbolicLink:
+        // TODO:
+        break;
+      case vscode.FileType.Directory:
+        await this.#recurseDir(uri, async (uri: vscode.Uri) => {
+          this.#deleteCache.queue(uri);
+        });
+        break;
+      case vscode.FileType.Unknown:
+        console.warn(`uploadQueue delete: unkown file ${uri.path}`);
+        break;
+      default:
+    }
+  };
+
+  delete = async () => {
+    this.#deleteCache.files.forEach((uri) =>
+      this.#add({ uri, op: UploadOp.delete })
+    );
+    this.#deleteCache.clear();
+  };
 
   set onProgress(c: ProgressCallbackFn | undefined) {
     this.#onProgress = c;
@@ -136,6 +189,67 @@ export class UploadQueue {
     this.#onError = c;
   }
 
+  #taskQueueWorker = async (
+    taskData: UploadTaskData,
+    _: as.ErrorCallback<Error>
+  ) => {
+    if (!this.taskQueue) {
+      throw Error("taskQueue not initialized");
+    }
+    //TODO: kill task queue and re-init this.taskQueue.kill()
+    console.log(
+      `uploadQueue worker ${uploadOpStr(taskData.op)} ${taskData.fsPath} start`
+    );
+    this.#onProgress && this.#onProgress(this.taskQueue, taskData);
+    try {
+      switch (taskData.op) {
+        case UploadOp.put:
+          await tsdApi.putFile(taskData);
+          break;
+        case UploadOp.delete:
+          await tsdApi.deleteFile(taskData);
+          break;
+        default:
+          throw new Error(`upload operation ${taskData.op} not implemented`);
+      }
+    } catch (err: any) {
+      console.log(
+        `uploadQueue worker error while uploading file. ${err.toString()}`
+      );
+      // retry?
+      if (taskData.numRemaingRetries > 0) {
+        console.log("taskQueue requeueing", taskData.fsPath);
+        this.taskQueue.push({
+          ...taskData,
+          numRemaingRetries: taskData.numRemaingRetries - 1,
+        });
+        return;
+      }
+      // save as incomplete task
+      this.incompleteTasks.add({ ...taskData });
+      // throw Error(
+      //   `failed to upload file ${taskData.fsPath} after ${maxRetries} retries`
+      // );
+    }
+    console.log(
+      `uploadQueue worker ${uploadOpStr(taskData.op)} ${
+        taskData.fsPath
+      } finished - remaining=${this.taskQueue.length()}`
+    );
+    if (this.taskQueue.length() === 0) {
+      // reset queue count
+      if (this.incompleteTasks.length > 0) {
+        console.log(
+          `uploadQueue incompleteTasks=${this.incompleteTasks.length}`
+        );
+        this.#onError && this.#onError(this.taskQueue);
+      } else {
+        console.log("uploadQueue complete");
+        this.#onWorkComplete && this.#onWorkComplete(this.taskQueue);
+      }
+    }
+  };
+
   cancel() {
     // save remaining tasks as incomplete
     const tasks = this.#getCurrentTasks();
@@ -145,56 +259,22 @@ export class UploadQueue {
       this.taskQueue.kill();
       // note: current proce tasks complete?
     }
-    this.taskQueue = as.queue<UploadTaskData>(async (taskData, e) => {
-      if (!this.taskQueue) {
-        throw Error("taskQueue not initialized");
-      }
-      //TODO: kill task queue and re-init this.taskQueue.kill()
-      console.log("taskQueue processing", taskData.fsPath, "start");
-      this.#onProgress && this.#onProgress(this.taskQueue, taskData);
-      try {
-        await tsdApi.putFile(taskData);
-      } catch (err: any) {
-        console.log(`taskQueue error while uploading file. ${err.toString()}`);
-        // retry?
-        if (taskData.numRemaingRetries > 0) {
-          console.log("taskQueue requeueing", taskData.fsPath);
-          this.taskQueue.push({
-            ...taskData,
-            numRemaingRetries: taskData.numRemaingRetries - 1,
-          });
-          return;
-        }
-        // save as incomplete task
-        this.incompleteTasks.add({ ...taskData });
-        // throw Error(
-        //   `failed to upload file ${taskData.fsPath} after ${maxRetries} retries`
-        // );
-      }
-      console.log(
-        `taskQueue processing ${
-          taskData.fsPath
-        } end - len: ${this.taskQueue.length()}`
-      );
-      if (this.taskQueue.length() === 0) {
-        console.log("taskqueue length == 0");
-        // reset queue count
-        if (this.incompleteTasks.length > 0) {
-          console.log("taskqueue incompleteTasks");
-          this.#onError && this.#onError(this.taskQueue);
-        } else {
-          console.log("taskqueue onWorkComplete");
-          this.#onWorkComplete && this.#onWorkComplete(this.taskQueue);
-        }
-      }
-    }, numParallelWorkers);
+    // init new taskqueue
+    this.taskQueue = as.queue<UploadTaskData>(
+      this.#taskQueueWorker,
+      numParallelWorkers
+    );
     this.taskQueue.drain(() => {
       if (!this.taskQueue) {
         throw Error("taskQueue not initialized");
       }
       this.#onProgress && this.#onProgress(this.taskQueue);
       console.log(
-        `taskQueue all items have been processed; incomplete: ${this.incompleteTasks.toString()}`
+        `uploadQueue is empty${
+          this.incompleteTasks.length
+            ? ` - incomplete: ${this.incompleteTasks.toString()}`
+            : ""
+        }`
       );
     });
   }
@@ -240,4 +320,24 @@ class IncompleteTasks {
   }
 
   has = (d: UploadData) => this.#set.contains(d);
+}
+
+/**
+ * We can't list files after they have deleted.
+ */
+class DeleteCache {
+  #files: vscode.Uri[] = [];
+
+  queue(file: vscode.Uri) {
+    console.log(`deleteCache queue ${file.path}`);
+    this.#files.push(file);
+  }
+
+  get files() {
+    return [...this.#files];
+  }
+
+  clear() {
+    this.#files = [];
+  }
 }

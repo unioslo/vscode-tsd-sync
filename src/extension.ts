@@ -37,23 +37,50 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(tsdSyncUploadAll);
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(async (e) => {
-      logic.dispatch({ type: ReducerActionType.syncFile, uri: e.uri });
+      await logic.dispatch({ type: ReducerActionType.put, uri: e.uri });
     })
   );
   context.subscriptions.push(
-    vscode.workspace.onDidCreateFiles((e) => {
-      e.files.map((file) =>
-        logic.dispatch({ type: ReducerActionType.syncFile, uri: file })
+    vscode.workspace.onDidCreateFiles(async (e) => {
+      const p = e.files.map((file) =>
+        logic.dispatch({ type: ReducerActionType.put, uri: file })
       );
+      await Promise.all(p);
     })
   );
   context.subscriptions.push(
-    vscode.workspace.onDidRenameFiles((e) => {
-      // todo: add delete
-      // todo: filter
-      e.files.map((file) =>
-        logic.dispatch({ type: ReducerActionType.syncFile, uri: file.newUri })
+    vscode.workspace.onWillDeleteFiles(async (e) => {
+      const p = e.files.map((file) =>
+        logic.dispatch({ type: ReducerActionType.prepareDelete, uri: file })
       );
+      await Promise.all(p);
+    })
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidDeleteFiles(async (e) => {
+      await logic.dispatch({ type: ReducerActionType.delete });
+    })
+  );
+  context.subscriptions.push(
+    vscode.workspace.onWillRenameFiles(async (e) => {
+      const p = e.files.map((file) =>
+        logic.dispatch({
+          type: ReducerActionType.prepareDelete,
+          uri: file.oldUri,
+        })
+      );
+      await Promise.all(p);
+    })
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidRenameFiles(async (e) => {
+      const p = [
+        logic.dispatch({ type: ReducerActionType.delete }),
+        ...e.files.map((file) =>
+          logic.dispatch({ type: ReducerActionType.put, uri: file.newUri })
+        ),
+      ];
+      await Promise.all(p);
     })
   );
 

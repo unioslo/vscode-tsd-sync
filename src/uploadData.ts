@@ -7,6 +7,19 @@ export enum UploadOp {
   delete,
 }
 
+
+
+/* eslint-disable */
+const uploadOpNames: Record<UploadOp, string> = {
+  "0": "put",
+  "1": "delete",
+};
+/* eslint-enable */
+
+export function uploadOpStr(op: UploadOp) {
+  return uploadOpNames[op];
+}
+
 export interface UploadData {
   fsPath: string;
   path: string;
