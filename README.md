@@ -1,48 +1,36 @@
-# tsd-code-push README
+# TSD code sync
 
-q:
+TSD (Tjenester for Sensitive Data) is a solution for researchers at the University of Oslo and other public research institutions.
 
-- symlinks
-- delete? (also needed for rename)
-- support passworded upload links?
-- how to check if import link expired?
-
-todo:
-
-- caching with hash of file content (even persist state? - might be needed for deletions)
-- tests?
-- push repo
-- add docu
-- publish
-- support .tsdsyncignore
-
-This is the README for your extension "tsd-code-push". After writing up a brief description, we recommend including the following sections.
+This extension maintains a copy of your workspace inside TSD.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+Creates and updates a copy of your workspace inside your TSD project. Whenever you save, create, rename or delete files in your local VS Code, your changes are propagated into TSD.
 
-For example if there is an image subfolder under your extension project workspace:
+![Enable sync to TSD](images/demo.gif?raw=true)
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+> Note: Make sure you create an import link _without_ a secret challenge.
 
 ## Requirements
 
-tbd
+A TSD import link without secret challenge. Use [selfservice.tsd.usit.no](https://selfservice.tsd.usit.no/project/import-links) to create one.
 
 ## Extension Settings
 
-tbd
-
 This extension contributes the following settings:
 
-- `tsdSync.importUrl`: tbd
+- `tsdSync.importUrl`: The import link that will be used to copy the workspace into TSD
 
 ## Known Issues
 
-tbd
+Currently, the following features are not supported:
+
+- Uploading symbolic links
+- Maintaining specific file permissions on uploaded files (for example executable flag)
+- Deleting folders
+- Creating empty folders
+- Upload links with secret challenge
 
 ## Release Notes
 
@@ -50,12 +38,10 @@ tbd
 
 Initial release
 
-### 0.0.2
-
-Added features X, Y, and Z.
-
 ---
 
 ## For more information
 
-- [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
+- [UiO Services for sensitive data (TSD)](https://www.uio.no/english/services/it/research/sensitive-data/)
+
+- [GitHub](https://github.com/unioslo/vscode-tsd-sync)

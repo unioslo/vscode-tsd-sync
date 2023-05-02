@@ -1,6 +1,6 @@
 {
-  "name": "tsd-code-push",
-  "displayName": "TSD code push",
+  "name": "tsd-code-sync",
+  "displayName": "TSD-code-sync",
   "description": "Push code to TSD",
   "version": "0.0.1",
   "engines": {
@@ -65,5 +65,9 @@
     "jwt-decode": "^3.1.2",
     "md5": "^2.3.0",
     "node-fetch": "^2.6.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unioslo/vscode-tsd-sync"
   }
 }
