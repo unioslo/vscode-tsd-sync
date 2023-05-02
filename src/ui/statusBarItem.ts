@@ -54,7 +54,9 @@ export namespace statusBarItem {
   }
 
   export function showSynced() {
-    statusBarItem.tooltip = `All files synced to pXX. Click to force new sync.`;
+    statusBarItem.tooltip = capTokenMgr.projectCached
+      ? `All files synced to ${capTokenMgr.projectCached}. Click to force new sync.`
+      : "All files synced to TSD. Click to force new sync.";
     statusBarItem.command = commandNames.tsdsyncUploadAll;
     statusBarItem.text =
       "$(check) " +
