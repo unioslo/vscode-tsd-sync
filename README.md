@@ -32,6 +32,12 @@ Currently, the following features are not supported:
 - Creating empty folders
 - Upload links with secret challenge
 
+## Development
+
+Clone this repo and open the folder in VS Code. Then, inside the editor, press `F5`. This will compile and run the extension in a new Extension Development Host window.
+
+[more info](https://code.visualstudio.com/api/get-started/your-first-extension)
+
 ## Release Notes
 
 ### 0.0.1
