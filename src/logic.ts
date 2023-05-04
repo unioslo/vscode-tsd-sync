@@ -6,27 +6,25 @@ import { capTokenMgr } from "./capToken";
 import { UUID } from "crypto";
 import { getWsConfigUrl } from "./config";
 import { importUrlValidationProgress } from "./ui/importUrlValidationProgress";
-import { UploadData, UploadTaskData } from "./uploadData";
+import { UploadTaskData } from "./uploadData";
 
 enum State {
   noconfig, // -> init
   init, // -> syncing
   synced, // -> syncing, error
-  syncing, // -> progress, error
-  progress, // -> error, synced
+  syncing, // -> synced, progress, error
+  progress, // -> synced, error
   error, // -> syncing
 }
 
 export enum ReducerActionType {
   put,
-  delete,
   prepareDelete,
+  delete,
   syncWorkspace,
   syncCompleted,
-  raiseFatalError,
   raiseError,
   showProgress,
-  hideProgress,
   cancelSync,
   validatedConfig,
 }
@@ -34,16 +32,14 @@ export enum ReducerActionType {
 /* eslint-disable */
 const reducerActionTypeNames: Record<ReducerActionType, string> = {
   "0": "put",
-  "1": "delete",
-  "2": "prepareDelete",
+  "1": "prepareDelete",
+  "2": "delete",
   "3": "syncWorkspace",
   "4": "syncCompleted",
-  "5": "raiseFatalError",
-  "6": "raiseError",
-  "7": "showProgress",
-  "8": "hideProgress",
-  "9": "cancelSync",
-  "10": "validatedConfig",
+  "5": "raiseError",
+  "6": "showProgress",
+  "7": "cancelSync",
+  "8": "validatedConfig",
 };
 /* eslint-enable */
 
@@ -209,7 +205,7 @@ export class Logic {
         statusBarItem.showError();
         return State.error;
     }
-    throw Error(`action: ${action.type} state: ${this.state} not implemented`);
+    throw Error(`action=${action.type} state=${this.state} not implemented`);
   }
 
   #syncProgressFn = async (
