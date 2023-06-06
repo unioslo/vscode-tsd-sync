@@ -34,7 +34,11 @@ Currently, the following features are not supported:
 
 ## Development
 
-Clone this repo and open the folder in VS Code. Then, inside the editor, press `F5`. This will compile and run the extension in a new Extension Development Host window.
+Requirements: VS Code, node + npm
+
+Clone this repo. Inside the folder, run `npm install`. Open the folder in VS Code. Then, inside the editor, press `F5`. This will compile and run the extension in a new Extension Development Host window.
+
+In the new window, open a folder/workspace. Now you should see a button labled with "TSD" in the bottom bar.
 
 [more info](https://code.visualstudio.com/api/get-started/your-first-extension)
 
