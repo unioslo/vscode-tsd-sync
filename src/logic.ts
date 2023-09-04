@@ -7,6 +7,7 @@ import { UUID } from "crypto";
 import { getWsConfigUrl } from "./config";
 import { importUrlValidationProgress } from "./ui/importUrlValidationProgress";
 import { UploadTaskData } from "./uploadData";
+import { QueueObject } from "async";
 
 enum State {
   noconfig, // -> init
@@ -106,9 +107,23 @@ export class Logic {
     this.#uploadQueue.onWorkComplete = () => {
       this.dispatch({ type: ReducerActionType.syncCompleted });
     };
-    this.#uploadQueue.onError = () => {
+    this.#uploadQueue.onError = (
+      taskQueue: QueueObject<UploadTaskData>,
+      messages: string[]
+    ) => {
       this.dispatch({ type: ReducerActionType.raiseError });
       statusBarItem.showError();
+      if (messages.length) {
+        vscode.window.showErrorMessage(
+          `${messages[0]}.${
+            messages.length > 1
+              ? ` ${messages.length - 1} more error${
+                  messages.length - 1 > 1 ? "s" : ""
+                }`
+              : ""
+          }`
+        );
+      }
     };
     statusBarItem.showMissingConfig();
     this.state = State.noconfig;

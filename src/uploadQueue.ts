@@ -13,6 +13,10 @@ import { tsdApi } from "./tsdApi";
 const numParallelWorkers = 1;
 const maxRetries = 1;
 
+type ErrorCallbackFn = (
+  taskQueue: QueueObject<UploadTaskData>,
+  messages: string[]
+) => void;
 type StatusCallbackFn = (taskQueue: QueueObject<UploadTaskData>) => void;
 type ProgressCallbackFn = (
   taskQueue: QueueObject<UploadTaskData>,
@@ -30,11 +34,13 @@ export class UploadQueue {
   #onProgress: undefined | ProgressCallbackFn;
   #onWorkStart: undefined | StatusCallbackFn;
   #onWorkComplete: undefined | StatusCallbackFn;
-  #onError: undefined | StatusCallbackFn;
+  #onError: undefined | ErrorCallbackFn;
+  #messages: string[];
 
   constructor({}: {} = {}) {
     this.taskQueue = null;
     this.clear();
+    this.#messages = [];
     // this.taskQueue.error((e, t) => {
     //   console.log("taskqueue error on task:", t);
     //   console.log("taskqueue error detail", e.message);
@@ -185,7 +191,7 @@ export class UploadQueue {
   set onWorkComplete(c: StatusCallbackFn | undefined) {
     this.#onWorkComplete = c;
   }
-  set onError(c: StatusCallbackFn | undefined) {
+  set onError(c: ErrorCallbackFn | undefined) {
     this.#onError = c;
   }
 
@@ -227,9 +233,11 @@ export class UploadQueue {
       }
       // save as incomplete task
       this.incompleteTasks.add({ ...taskData });
-      // throw Error(
-      //   `failed to upload file ${taskData.fsPath} after ${maxRetries} retries`
-      // );
+      this.#messages.push(
+        `Error while syncing file ${taskData.path} after ${
+          maxRetries + 1
+        } attempts. ${err.toString()}`
+      );
     }
     console.log(
       `uploadQueue worker ${uploadOpStr(taskData.op)} ${
@@ -242,11 +250,13 @@ export class UploadQueue {
         console.log(
           `uploadQueue incompleteTasks=${this.incompleteTasks.length}`
         );
-        this.#onError && this.#onError(this.taskQueue);
+        this.#onError && this.#onError(this.taskQueue, this.#messages);
       } else {
         console.log("uploadQueue complete");
         this.#onWorkComplete && this.#onWorkComplete(this.taskQueue);
       }
+      // clean up messages
+      this.#messages = [];
     }
   };
 

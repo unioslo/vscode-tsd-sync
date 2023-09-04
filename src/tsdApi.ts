@@ -1,8 +1,18 @@
-import fetch from "node-fetch";
+import fetch, { Response } from "node-fetch";
 import { UUID } from "crypto";
 import * as fs from "fs";
 import { capTokenMgr } from "./capToken";
 import { tsdConsts } from "./tsdConsts";
+
+async function tryParseMessage(r: Response): Promise<string> {
+  try {
+    const j = r.json() as any;
+    if (j.message) {
+      return j.message;
+    }
+  } catch (e) {}
+  return r.statusText;
+}
 
 export namespace tsdApi {
   export async function getCapToken(uuid: UUID) {
@@ -17,7 +27,8 @@ export namespace tsdApi {
       }),
     });
     if (!r.ok) {
-      throw new Error(r.statusText);
+      const msg = await tryParseMessage(r);
+      throw new Error(msg);
     }
     const j = (await r.json()) as any;
     if (!j.token) {
@@ -43,7 +54,8 @@ export namespace tsdApi {
       body: fs.createReadStream(fsPath),
     });
     if (!r.ok) {
-      throw new Error(r.statusText);
+      const msg = await tryParseMessage(r);
+      throw new Error(msg);
     }
   }
 
@@ -57,7 +69,8 @@ export namespace tsdApi {
       },
     });
     if (!r.ok) {
-      throw new Error(r.statusText);
+      const msg = await tryParseMessage(r);
+      throw new Error(msg);
     }
   }
 }
