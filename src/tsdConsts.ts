@@ -14,7 +14,7 @@ export namespace tsdConsts {
   );
   export const getUuidFromImportUrl = (s: string): UUID | undefined =>
     s.split("/").pop() as UUID;
-  export const tokenUrl = "https://data.tsd.usit.no/capability_token";
+  export const tokenUrl = "https://data.tsd.usit.no/v1/all/auth/instances/token";
   export const uploadUrl = ({
     project,
     group,
