@@ -3,7 +3,7 @@
   "displayName": "TSD-code-sync",
   "description": "Push code to TSD",
   "publisher": "FlorianKrull",
-  "version": "0.0.3",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.77.0"
   },
