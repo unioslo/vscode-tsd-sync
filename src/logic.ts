@@ -164,17 +164,24 @@ export class Logic {
             return this.state;
           case State.init:
             statusBarItem.showSync();
-            f();
+            await f();
             // sync whole workspace on init
             await this.#uploadQueue.syncWorkspace();
             return State.syncing;
           case State.synced:
           case State.syncing:
           case State.progress:
-          case State.error:
+          case State.error: {
             statusBarItem.showSync();
+            // note: this needs to be called before the put/delete
+            const configChanged = await this.#uploadQueue.hasConfigChanged();
             await f();
+            // if ignore-config has changed, resync whole ws
+            if (configChanged) {
+              await this.#uploadQueue.syncWorkspace();
+            }
             return State.syncing;
+          }
         }
       }
       case ReducerActionType.syncWorkspace:
