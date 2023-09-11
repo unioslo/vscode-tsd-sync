@@ -9,6 +9,7 @@ import {
 import { QueueObject } from "async";
 import * as vscode from "vscode";
 import { tsdApi } from "./tsdApi";
+import { SyncIgnore } from "./syncIgnore";
 
 const numParallelWorkers = 1;
 const maxRetries = 1;
@@ -23,10 +24,6 @@ type ProgressCallbackFn = (
   taskData?: UploadTaskData
 ) => void;
 
-function whitelistedForSyncFilter(uri: vscode.Uri): boolean {
-  return !vscode.workspace.asRelativePath(uri.fsPath).startsWith(".vscode/");
-}
-
 export class UploadQueue {
   taskQueue: QueueObject<UploadTaskData> | null; // null to make linter happy :(
   incompleteTasks = new IncompleteTasks();
@@ -36,15 +33,13 @@ export class UploadQueue {
   #onWorkComplete: undefined | StatusCallbackFn;
   #onError: undefined | ErrorCallbackFn;
   #messages: string[];
+  #syncIgnore: SyncIgnore;
 
-  constructor({}: {} = {}) {
+  constructor({ syncIgnore }: { syncIgnore: SyncIgnore }) {
     this.taskQueue = null;
     this.clear();
     this.#messages = [];
-    // this.taskQueue.error((e, t) => {
-    //   console.log("taskqueue error on task:", t);
-    //   console.log("taskqueue error detail", e.message);
-    // });
+    this.#syncIgnore = syncIgnore;
   }
 
   #getCurrentTasks = () => {
@@ -70,7 +65,8 @@ export class UploadQueue {
     if (!this.taskQueue) {
       throw Error("taskQueue not initialized");
     }
-    if (!whitelistedForSyncFilter(uri)) {
+    if (this.#syncIgnore.isIgnoredPath(uri)) {
+      console.log(`skipping ignored file ${uri.fsPath}`);
       return;
     }
     const tasks = this.#getCurrentTasksSet();

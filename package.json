@@ -2,7 +2,8 @@
   "name": "tsd-code-sync",
   "displayName": "TSD-code-sync",
   "description": "Push code to TSD",
-  "version": "0.0.1",
+  "publisher": "FlorianKrull",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.77.0"
   },
@@ -62,6 +63,7 @@
     "async": "^3.2.4",
     "async-es": "^3.2.4",
     "async-mutex": "^0.4.0",
+    "ignore": "^5.2.4",
     "jwt-decode": "^3.1.2",
     "md5": "^2.3.0",
     "node-fetch": "^2.6.9"
