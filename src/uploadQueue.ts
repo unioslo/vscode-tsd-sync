@@ -33,13 +33,13 @@ export class UploadQueue {
   #onWorkComplete: undefined | StatusCallbackFn;
   #onError: undefined | ErrorCallbackFn;
   #messages: string[];
-  #ignore: SyncIgnore;
+  #syncIgnore: SyncIgnore;
 
-  constructor({}: {} = {}) {
+  constructor({ syncIgnore }: { syncIgnore: SyncIgnore }) {
     this.taskQueue = null;
     this.clear();
     this.#messages = [];
-    this.#ignore = new SyncIgnore();
+    this.#syncIgnore = syncIgnore;
   }
 
   #getCurrentTasks = () => {
@@ -65,7 +65,7 @@ export class UploadQueue {
     if (!this.taskQueue) {
       throw Error("taskQueue not initialized");
     }
-    if (this.#ignore.isIgnoredPath(uri)) {
+    if (this.#syncIgnore.isIgnoredPath(uri)) {
       console.log(`skipping ignored file ${uri.fsPath}`);
       return;
     }
@@ -118,12 +118,7 @@ export class UploadQueue {
     });
   };
 
-  async hasConfigChanged(): Promise<boolean> {
-    return await this.#ignore.hasConfigChanged();
-  }
-
   syncWorkspace = async () => {
-    await this.#ignore.reloadConfig();
     if (vscode.workspace.workspaceFolders) {
       const p = vscode.workspace.workspaceFolders.map((wsFolder) =>
         this.#recurseDir(wsFolder.uri, async (uri: vscode.Uri) => {
@@ -135,7 +130,6 @@ export class UploadQueue {
   };
 
   put = async (uri: vscode.Uri) => {
-    await this.#ignore.reloadConfig();
     const stat = await vscode.workspace.fs.stat(uri);
     switch (stat.type) {
       case vscode.FileType.File:
@@ -157,7 +151,6 @@ export class UploadQueue {
   };
 
   prepareDelete = async (uri: vscode.Uri) => {
-    await this.#ignore.reloadConfig();
     const stat = await vscode.workspace.fs.stat(uri);
     switch (stat.type) {
       case vscode.FileType.File:

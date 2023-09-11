@@ -8,6 +8,7 @@ import { getWsConfigUrl } from "./config";
 import { importUrlValidationProgress } from "./ui/importUrlValidationProgress";
 import { UploadTaskData } from "./uploadData";
 import { QueueObject } from "async";
+import { SyncIgnoreMgr } from "./syncIgnore";
 
 enum State {
   noconfig, // -> init
@@ -101,7 +102,8 @@ type ReducerAction =
 
 export class Logic {
   state: State = State.noconfig;
-  #uploadQueue = new UploadQueue();
+  #syncIgnore = new SyncIgnoreMgr();
+  #uploadQueue = new UploadQueue({ syncIgnore: this.#syncIgnore });
 
   constructor() {
     this.#uploadQueue.onWorkComplete = () => {
@@ -159,6 +161,8 @@ export class Logic {
           action.type === ReducerActionType.put
             ? () => this.#uploadQueue.put(action.uri)
             : () => this.#uploadQueue.delete();
+        const configChanged = await this.#syncIgnore.hasConfigChanged();
+        await this.#syncIgnore.reloadConfig();
         switch (this.state) {
           case State.noconfig:
             return this.state;
@@ -174,7 +178,6 @@ export class Logic {
           case State.error: {
             statusBarItem.showSync();
             // note: this needs to be called before the put/delete
-            const configChanged = await this.#uploadQueue.hasConfigChanged();
             await f();
             // if ignore-config has changed, resync whole ws
             if (configChanged) {
@@ -194,6 +197,7 @@ export class Logic {
           case State.progress:
           case State.error:
             statusBarItem.showSync();
+            await this.#syncIgnore.reloadConfig();
             await this.#uploadQueue.syncWorkspace();
             return State.syncing;
         }

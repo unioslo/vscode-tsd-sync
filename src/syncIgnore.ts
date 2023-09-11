@@ -4,7 +4,11 @@ import { TextDecoder } from "util";
 
 const syncIgnoreFilename = ".tsdsyncignore";
 
-export class SyncIgnore {
+export interface SyncIgnore {
+  isIgnoredPath: (uri: vscode.Uri) => boolean;
+}
+
+export class SyncIgnoreMgr implements SyncIgnore {
   #ignore: Ignore;
   #ignoreFileMtime: number | null; // to check if reload is required
 
