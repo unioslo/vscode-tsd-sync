@@ -218,7 +218,7 @@ export class Logic {
             showSyncProgress(this, this.#syncProgressFn);
             return State.progress;
         }
-        break;
+        return this.state;
       case ReducerActionType.cancelSync:
         switch (this.state) {
           case State.progress:
