@@ -29,5 +29,5 @@ export namespace tsdConsts {
   }) =>
     `https://data.tsd.usit.no/v1/${project}/files/stream/${group}/${
       basePath ? encodeURI(basePath) : ""
-    }/${encodeURI(path)}`;
+    }/${encodeURI(path)}?group=${group}`;
 }
