@@ -10,6 +10,7 @@ interface UploadJwt {
   exp: number;
   groups: string[];
   proj: string;
+  path: string | null;
   // there is more - should add on demand
 }
 
@@ -64,6 +65,7 @@ class CapTokenMgr {
         token: this.#uploadToken,
         project: capTokDec.proj,
         group: capTokDec.groups[0],
+        basePath: capTokDec.path,
       };
     });
   }

@@ -44,15 +44,18 @@ export namespace tsdApi {
     path: string;
     fsPath: string;
   }) {
-    const { group, project, token } = await capTokenMgr.getToken();
-    const r = await fetch(tsdConsts.uploadUrl({ path, group, project }), {
-      method: "PUT",
-      headers: {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        Authorization: `Bearer ${token}`,
-      },
-      body: fs.createReadStream(fsPath),
-    });
+    const { group, project, token, basePath } = await capTokenMgr.getToken();
+    const r = await fetch(
+      tsdConsts.uploadUrl({ path, group, project, basePath }),
+      {
+        method: "PUT",
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          Authorization: `Bearer ${token}`,
+        },
+        body: fs.createReadStream(fsPath),
+      }
+    );
     if (!r.ok) {
       const msg = await tryParseMessage(r);
       throw new Error(msg);
@@ -60,14 +63,17 @@ export namespace tsdApi {
   }
 
   export async function deleteFile({ path }: { path: string }) {
-    const { group, project, token } = await capTokenMgr.getToken();
-    const r = await fetch(tsdConsts.uploadUrl({ path, group, project }), {
-      method: "DELETE",
-      headers: {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const { group, project, token, basePath } = await capTokenMgr.getToken();
+    const r = await fetch(
+      tsdConsts.uploadUrl({ path, group, project, basePath }),
+      {
+        method: "DELETE",
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
     if (!r.ok) {
       const msg = await tryParseMessage(r);
       throw new Error(msg);
